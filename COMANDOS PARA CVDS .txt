@@ -1,0 +1,15 @@
+COMANDOS PARA CVDS 
+
+git remote add origin (url)
+
+git clone (url)
+
+gir add . 
+
+mvn archetype:generate -DgroupId=com.ejemplo -DartifactId=nombre-del-proyecto -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
+
+git remote remove <nombre_del_remoto>
+
+git remote remove origin
+
+git checkout -b nombre-de-la-rama
