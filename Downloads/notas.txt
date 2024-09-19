@@ -1,0 +1,196 @@
+Para implementar un sistema de monitoreo de stock de productos en Java utilizando Spring Boot y aplicando un patrón de diseño, vamos a utilizar el patrón Observer para gestionar la notificación a los agentes. A continuación, te muestro cómo hacerlo.
+
+Estructura del Proyecto
+Modelo de Producto: Clase que representa un producto.
+Servicio de Producto: Lógica de negocio para manejar productos.
+Agentes: Implementación de los agentes que reaccionan a los cambios.
+Controlador REST: Para manejar las peticiones HTTP.
+Dependencias de Maven
+Asegúrate de tener las siguientes dependencias en tu pom.xml:
+
+xml
+Copy code
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+</dependencies>
+Implementación
+1. Modelo de Producto
+java
+Copy code
+package com.example.stockmonitor.model;
+
+public class Producto {
+    private String nombre;
+    private double precio;
+    private int cantidad;
+    private String categoria;
+
+    // Getters y Setters
+    // Constructor
+}
+2. Interfaz del Observador
+java
+Copy code
+package com.example.stockmonitor.observer;
+
+public interface StockObserver {
+    void update(Producto producto);
+}
+3. Implementación de Agentes
+java
+Copy code
+package com.example.stockmonitor.observer;
+
+import com.example.stockmonitor.model.Producto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AgenteLog implements StockObserver {
+    private static final Logger logger = LoggerFactory.getLogger(AgenteLog.class);
+
+    @Override
+    public void update(Producto producto) {
+        logger.info("Producto: {} -> {} unidades disponibles", producto.getNombre(), producto.getCantidad());
+    }
+}
+java
+Copy code
+package com.example.stockmonitor.observer;
+
+import com.example.stockmonitor.model.Producto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AgenteAdvertencia implements StockObserver {
+    private static final Logger logger = LoggerFactory.getLogger(AgenteAdvertencia.class);
+
+    @Override
+    public void update(Producto producto) {
+        if (producto.getCantidad() < 5) {
+            logger.warn("ALERTA!!! El stock del Producto: {} es muy bajo, solo quedan {} unidades", producto.getNombre(), producto.getCantidad());
+        }
+    }
+}
+4. Servicio de Producto
+java
+Copy code
+package com.example.stockmonitor.service;
+
+import com.example.stockmonitor.model.Producto;
+import com.example.stockmonitor.observer.StockObserver;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class ProductoService {
+    private final Map<String, Producto> productos = new HashMap<>();
+    private final List<StockObserver> observers = new ArrayList<>();
+
+    public void addObserver(StockObserver observer) {
+        observers.add(observer);
+    }
+
+    public void agregarProducto(Producto producto) {
+        productos.put(producto.getNombre(), producto);
+        notifyObservers(producto);
+    }
+
+    public void modificarStock(String nombre, int nuevaCantidad) {
+        Producto producto = productos.get(nombre);
+        if (producto != null) {
+            producto.setCantidad(nuevaCantidad);
+            notifyObservers(producto);
+        }
+    }
+
+    private void notifyObservers(Producto producto) {
+        for (StockObserver observer : observers) {
+            observer.update(producto);
+        }
+    }
+
+    public Producto getProducto(String nombre) {
+        return productos.get(nombre);
+    }
+}
+5. Controlador REST
+java
+Copy code
+package com.example.stockmonitor.controller;
+
+import com.example.stockmonitor.model.Producto;
+import com.example.stockmonitor.service.ProductoService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/productos")
+public class ProductoController {
+
+    @Autowired
+    private ProductoService productoService;
+
+    @PostMapping
+    public ResponseEntity<String> agregarProducto(@RequestBody Producto producto) {
+        productoService.agregarProducto(producto);
+        return new ResponseEntity<>("Producto agregado exitosamente.", HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{nombre}")
+    public ResponseEntity<String> modificarStock(@PathVariable String nombre, @RequestParam int cantidad) {
+        productoService.modificarStock(nombre, cantidad);
+        return new ResponseEntity<>("Stock actualizado exitosamente.", HttpStatus.OK);
+    }
+}
+6. Configuración del Proyecto
+Finalmente, asegúrate de que en tu clase principal de Spring Boot, inyectas los agentes en el ProductoService:
+
+java
+Copy code
+package com.example.stockmonitor;
+
+import com.example.stockmonitor.observer.AgenteAdvertencia;
+import com.example.stockmonitor.observer.AgenteLog;
+import com.example.stockmonitor.service.ProductoService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class StockMonitorApplication {
+
+    @Autowired
+    public StockMonitorApplication(ProductoService productoService, AgenteLog agenteLog, AgenteAdvertencia agenteAdvertencia) {
+        productoService.addObserver(agenteLog);
+        productoService.addObserver(agenteAdvertencia);
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(StockMonitorApplication.class, args);
+    }
+}
+Ejecución
+Con esta estructura, puedes ejecutar tu aplicación Spring Boot y hacer peticiones HTTP para agregar y modificar productos. Los agentes se activarán automáticamente y notificarán los cambios según lo especificado.
+
+Consideraciones Adicionales
+Persistencia: Considera integrar una base de datos como MySQL o MongoDB si necesitas persistir los productos.
+Validaciones: Implementa validaciones para manejar entradas inválidas.
+Pruebas: Es importante escribir pruebas unitarias y de integración para asegurar el correcto funcionamiento del sistema.
+Con esto, tienes un sistema de monitoreo de stock utilizando Spring Boot y el patrón Observer para gestionar notificaciones de cambios en el stock de productos.
